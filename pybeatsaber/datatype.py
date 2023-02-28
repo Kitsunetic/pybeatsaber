@@ -1,8 +1,13 @@
+import io
 import json
+from collections import defaultdict
 from dataclasses import dataclass
 from os import PathLike
-from typing import List, Union
+from pathlib import Path
+from typing import Dict, List, Union
 from zipfile import ZipFile
+
+from PIL import Image
 
 __all__ = ["Note", "Slider", "Obstacle", "Event", "Beatmap", "BeatmapInfo", "BeatmapSet", "PyBeatmap"]
 
@@ -10,13 +15,10 @@ __all__ = ["Note", "Slider", "Obstacle", "Event", "Beatmap", "BeatmapInfo", "Bea
 class _BytableDataType:
     def to_dict(self):
         out_dict = {}
-
-        for k, v in self.__annotations__.items():
-            if isinstance(v, _BytableDataType):
-                v = v.to_dict()
-
-            out_dict[k] = v
-
+        for k, v in self.__dict__.items():
+            if k == "customData" and not v:
+                continue
+            out_dict["_" + k] = v
         return out_dict
 
     def to_json(self):
@@ -200,6 +202,17 @@ class Beatmap(_BytableDataType):
         msg = f"Beatmap({len(self.notes)} notes, {len(self.sliders)} sliders, {len(self.obstacles)} obstacles, {len(self.events)} events)"
         return msg
 
+    def to_json(self):
+        data = {
+            "_version": self.version,
+            "_notes": [x.to_dict() for x in self.notes],
+            "_sliders": [x.to_dict() for x in self.sliders],
+            "_obstacles": [x.to_dict() for x in self.obstacles],
+            "_events": [x.to_dict() for x in self.events],
+            "_customData": self.customData,
+        }
+        return json.dumps(data)
+
 
 @dataclass
 class BeatmapInfo(_BytableDataType):
@@ -231,6 +244,15 @@ class BeatmapInfo(_BytableDataType):
         msg += f" noteJumpStartBeatOffset={self.noteJumpStartBeatOffset})"
         return msg
 
+    def to_dict(self):
+        return {
+            "_difficulty": self.difficulty,
+            "_beatmapFilename": self.beatmapFilename,
+            "_noteJumpMovementSpeed": self.noteJumpMovementSpeed,
+            "_noteJumpStartBeatOffset": self.noteJumpStartBeatOffset,
+            "_customData": self.customData,
+        }
+
 
 @dataclass
 class BeatmapSet(_BytableDataType):
@@ -241,8 +263,6 @@ class BeatmapSet(_BytableDataType):
     @staticmethod
     def from_zip(data: dict, zfile: ZipFile):
         difficultyBeatmaps = data.get("_difficultyBeatmaps", [])
-        for difficultyBeatmap in difficultyBeatmaps:
-            difficultyBeatmap
         difficultyBeatmaps = [BeatmapInfo.from_zip(x, zfile) for x in difficultyBeatmaps]
 
         return BeatmapSet(
@@ -256,6 +276,13 @@ class BeatmapSet(_BytableDataType):
         msg += ", ".join([bmap.difficulty for bmap in self.difficultyBeatmaps])
         msg += "]"
         return msg
+
+    def to_dict(self):
+        return {
+            "_beatmapCharacteristicName": self.beatmapCharacteristicName,
+            "_difficultyBeatmaps": [x.to_dict() for x in self.difficultyBeatmaps],
+            "_customData": self.customData,
+        }
 
 
 class PyBeatmap:
@@ -275,27 +302,29 @@ class PyBeatmap:
         songFilename: str,
         coverImageFilename: str,
         environmentName: str,
-        difficultyBeatmapSets: List[BeatmapSet],
+        difficultyBeatmapSets: Dict[str, BeatmapSet],
         customData: dict,
         song: bytes,
+        cover: Image,
     ):
-        self.version = version
-        self.songName = songName
-        self.songSubName = songSubName
-        self.songAuthorName = songAuthorName
-        self.levelAuthorName = levelAuthorName
-        self.beatsPerMinute = beatsPerMinute
-        self.songTimeOffset = songTimeOffset
-        self.shuffle = shuffle
-        self.shufflePeriod = shufflePeriod
-        self.perviewStartTime = perviewStartTime
-        self.previewDuration = previewDuration
-        self.songFilename = songFilename
-        self.coverImageFilename = coverImageFilename
-        self.environmentName = environmentName
-        self.difficultyBeatmapSets = difficultyBeatmapSets
-        self.customData = customData
-        self.song = song
+        self.version: str = version
+        self.songName: str = songName
+        self.songSubName: str = songSubName
+        self.songAuthorName: str = songAuthorName
+        self.levelAuthorName: str = levelAuthorName
+        self.beatsPerMinute: int = beatsPerMinute
+        self.songTimeOffset: int = songTimeOffset
+        self.shuffle: int = shuffle
+        self.shufflePeriod: float = shufflePeriod
+        self.perviewStartTime: float = perviewStartTime
+        self.previewDuration: float = previewDuration
+        self.songFilename: str = songFilename
+        self.coverImageFilename: str = coverImageFilename
+        self.environmentName: str = environmentName
+        self.difficultyBeatmapSets: Dict[str, BeatmapSet] = difficultyBeatmapSets
+        self.customData: dict = customData
+        self.song: bytes = song
+        self.cover: Image = cover
 
     @property
     def bpm(self):
@@ -311,11 +340,17 @@ class PyBeatmap:
             info_file_name = namelist[idx]
 
             info = json.loads(str(zfile.read(info_file_name), encoding="utf-8"))
-            difficultyBeatmapSets = info.get("_difficultyBeatmapSets", [])
-            difficultyBeatmapSets = [BeatmapSet.from_zip(x, zfile) for x in difficultyBeatmapSets]
+            difficultyBeatmapSets = {}
+            beatset_data_lst = info.get("_difficultyBeatmapSets", [])
+            for beatset_data in beatset_data_lst:
+                beatset = BeatmapSet.from_zip(beatset_data, zfile)
+                difficultyBeatmapSets[beatset.beatmapCharacteristicName] = beatset
 
             songFilename = info["_songFilename"]
             song = zfile.read(songFilename)
+
+            coverImageFilename = info["_coverImageFilename"]
+            cover = zfile.read(coverImageFilename)
 
             return PyBeatmap(
                 version=info["_version"],
@@ -335,6 +370,7 @@ class PyBeatmap:
                 difficultyBeatmapSets=difficultyBeatmapSets,
                 customData=info.get("_customData", {}),
                 song=song,
+                cover=cover,
             )
 
     def __repr__(self):
@@ -342,3 +378,46 @@ class PyBeatmap:
         msg += ",\n".join(["    " + bmapset.__repr__() for bmapset in self.difficultyBeatmapSets])
         msg += "\n}"
         return msg
+
+    def __getitem__(self, beatmapCharacteristicName: str = "Standard"):
+        return self.difficultyBeatmapSets[beatmapCharacteristicName]
+
+    def to_zip(self, path):
+        with ZipFile(path, "w") as zfile:
+            # info.dat
+            difficultyBeatmapSets = []
+            for beatmap_set in self.difficultyBeatmapSets.values():
+                beatmap_set.difficultyBeatmaps
+
+            info = {
+                "_version": self.version,
+                "_songName": self.songName,
+                "_songSubName": self.songSubName,
+                "_songAuthorName": self.songAuthorName,
+                "_levelAuthorName": self.levelAuthorName,
+                "_beatsPerMinute": self.beatsPerMinute,
+                "_songTimeOffset": self.songTimeOffset,
+                "_shuffle": self.shuffle,
+                "_shufflePeriod": self.shufflePeriod,
+                "_perviewStartTime": self.perviewStartTime,
+                "_previewDuration": self.previewDuration,
+                "_songFilename": self.songFilename,
+                "_coverImageFilename": self.coverImageFilename,
+                "_environmentName": self.environmentName,
+                "_difficultyBeatmapSets": [x.to_dict() for x in self.difficultyBeatmapSets.values()],
+                "_customData": self.customData,
+            }
+            info = json.dumps(info)
+            zfile.writestr("info.dat", info)
+
+            # song
+            zfile.writestr(self.songFilename, self.song)
+
+            # cover image
+            zfile.writestr(self.coverImageFilename, self.cover)
+
+            # beatmap *.dat files
+            for beatmapset in self.difficultyBeatmapSets.values():
+                for beatmapinfo in beatmapset.difficultyBeatmaps:
+                    beatmap: Beatmap = beatmapinfo.beatmap
+                    zfile.writestr(beatmapinfo.beatmapFilename, beatmap.to_json())
