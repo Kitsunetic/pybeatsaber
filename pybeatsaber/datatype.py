@@ -375,7 +375,7 @@ class PyBeatmap:
 
     def __repr__(self):
         msg = f"PyBeatmap({self.songName}, {self.songSubName} {{\n"
-        msg += ",\n".join(["    " + bmapset.__repr__() for bmapset in self.difficultyBeatmapSets])
+        msg += ",\n".join(["    " + bmapset.__repr__() for bmapset in self.difficultyBeatmapSets.values()])
         msg += "\n}"
         return msg
 
