@@ -8,60 +8,72 @@ pip install git+https://github.com/Kitsunetic/pybeatsaber
 ```
 
 
-## Notations
-
-- Beatmap: a level of a beatmap, containing notes, obstacles, events, sliders.
-- BeatmapInfo: more additional information about a `Beatmap`.
-- BeatmapSet: a set of `BeatmapInfo`. This is categorized by `_beatmapCharacteristicName`, such as "Standard", "No Arrow", "One Saber", e.t.c.
-- PyBeatmap: a container of multiple beatmaps and thier information.
-
-
 ## Usage
 
-Load beatmap file (*.zip)
+Load beatmap file (*.zip).
+
+The overall structure of data is quite hierarchical.
+I followed the structure introduced in documentation of [BSMG Wiki](https://bsmg.wiki/mapping/map-format.html).
+
+The specific notations are following:
+- `PyBeatmap`: The top class of the hierarchy. It can be opened from a `*.zip` file or you also can make this class from scratch.
+- `BeatmapSet`: A sub class of `PyBeatmap`. It stores multiple `BeatmapInfo`. `PyBeatmap` can have multiple `BeatmapSet`.
+- `BeatmapInfo`: A sub class of `BeatmapSet`. It stores a `Beatmap`, and additional information about the `Beatmap`.
+- `Beatmap`: A class of a beatmap. It has list of `Node`s, `Obstalce`s, `Event`s, `Slider`s.
+- `Note`, `Obstacle`, `Event`, `Slider`: They represents a note of game, containing informations such as timing and direction.
+
+
+### Usage Example: Load a `*.zip` file:
 
 ```py
 from pybeatsaber import PyBeatmap
 
-pybeat = PyBeatmap("000fbcb46c41cd0c363a80ae389333f7625e0921.zip")
-pybeat
+container = PyBeatmap.from_zip("00e6c4a1bc9d5c66169331fce2ddf05243ad57f9.zip")
+container
 """
-PyBeatmap(LA DI DA,  {
-    BeatmapSet(Standard: [Hard, Expert, ExpertPlus]
+PyBeatmap(Mandala, (ft. Mitaka) {
+    BeatmapSet(Standard: [Easy, Normal, Hard, Expert, ExpertPlus]
 }
 """
-```
 
+container.difficultyBeatmapSets
+"""
+{'Standard': BeatmapSet(Standard: [Easy, Normal, Hard, Expert, ExpertPlus]}
+"""
 
-Beatmap file data structure:
-The structure is following map format of [BSMG Wiki](https://bsmg.wiki/mapping/map-format.html).
-
-```py
-bmapset = bmap.difficultyBeatmapSets[0]
+beatmap_set = container.difficultyBeatmapSets["Standard"]
+beatmap_set
 """
 BeatmapSet(Standard: [Hard, Expert, ExpertPlus]
 """
 
-bmapset.difficultyBeatmaps
+beatmap_set.difficultyBeatmaps
 """
-[BeatmapInfo(Hard, noteJumpMovementSpeed=14, noteJumpStartBeatOffset=0.4000000059604645),
- BeatmapInfo(Expert, noteJumpMovementSpeed=16, noteJumpStartBeatOffset=0),
- BeatmapInfo(ExpertPlus, noteJumpMovementSpeed=18, noteJumpStartBeatOffset=-0.4000000059604645)]
+[BeatmapInfo(Easy, noteJumpMovementSpeed=12, noteJumpStartBeatOffset=0.5),
+ BeatmapInfo(Normal, noteJumpMovementSpeed=14, noteJumpStartBeatOffset=1),
+ BeatmapInfo(Hard, noteJumpMovementSpeed=16, noteJumpStartBeatOffset=-0.200000002980232),
+ BeatmapInfo(Expert, noteJumpMovementSpeed=19, noteJumpStartBeatOffset=-0.5),
+ BeatmapInfo(ExpertPlus, noteJumpMovementSpeed=19, noteJumpStartBeatOffset=-0.5)]
 """
 
-bmapinfo = bmapset.difficultyBeatmaps[0]
-bmap = bmapinfo.beatmap
-bmap
+beatmap_info = beatmap_set.difficultyBeatmaps[0]
+beatmap_info
 """
-Beatmap(687 notes, 0 sliders, 166 obstacles, 9456 events)
+BeatmapInfo(Easy, noteJumpMovementSpeed=12, noteJumpStartBeatOffset=0.5)
+"""
+
+beatmap = beatmap_info.beatmap
+beatmap
+"""
+Beatmap(185 notes, 0 sliders, 0 obstacles, 5365 events)
 """
 ```
 
 
-Read notes, obstacles, events, sliders:
+### Usage Example: Read notes, obstacles, events, sliders:
 
 ```py
-bmap.notes[:10]
+beatmap.notes[:10]
 """
 [Note(5.4: (2, 0, 1, 1),
  Note(6.4: (3, 1, 1, 5),
@@ -75,7 +87,7 @@ bmap.notes[:10]
  Note(13.4: (1, 0, 0, 1)]
 """
 
-bmap.obstacles[:10]
+beatmap.obstacles[:10]
 """
 [Obstacle(5.4: (0, 1, 1, 0.25)),
  Obstacle(7.4: (3, 1, 1, 0.25)),
@@ -89,7 +101,7 @@ bmap.obstacles[:10]
  Obstacle(33.8: (3, 1, 0, 0.0625))]
 """
 
-bmap.events[:10]
+beatmap.events[:10]
 """
 [Event(5.4: (2, 6)),
  Event(5.4: (1, 3)),
@@ -103,8 +115,16 @@ bmap.events[:10]
  Event(7.4: (12, 2))]
 """
 
-bmap.sliders[:10]
+beatmap.sliders[:10]
 """
 []
 """
 ```
+
+### Usage Example: Save the beatmap:
+
+```py
+container.to_zip("test.zip")
+```
+
+You can open and visualize the result throguh [Beatmapper](https://beatmapper.app/)!
