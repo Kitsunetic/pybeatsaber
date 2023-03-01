@@ -50,7 +50,6 @@ class Note(_BytableDataType):
     def is_valid(self):
         x = self.lineIndex in (0, 1, 2, 3)
         x &= self.lineLayer in (0, 1, 2)
-        x &= self.time in (0, 1)
         x &= (self.type in (0, 1) and self.cutDirection in (0, 1, 2, 3, 4, 5, 6, 7, 8)) or self.type == 3
         x &= self.time >= 0.0
         return x
