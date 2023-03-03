@@ -1,6 +1,4 @@
-import io
 import json
-from collections import defaultdict
 from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
@@ -8,6 +6,8 @@ from typing import Dict, List, Union
 from zipfile import ZipFile
 
 from PIL import Image
+
+from .utils import find_file_from_zip_regardless_capital
 
 __all__ = ["Note", "Slider", "Obstacle", "Event", "Beatmap", "BeatmapInfo", "BeatmapSet", "PyBeatmap"]
 
@@ -322,8 +322,8 @@ class PyBeatmap:
         self.environmentName: str = environmentName
         self.difficultyBeatmapSets: Dict[str, BeatmapSet] = difficultyBeatmapSets
         self.customData: dict = customData
-        self.song: bytes = song
-        self.cover: Image = cover
+        self.song: Union[bytes, None] = song
+        self.cover: Union[bytes, None] = cover
 
     @property
     def bpm(self):
@@ -345,11 +345,17 @@ class PyBeatmap:
                 beatset = BeatmapSet.from_zip(beatset_data, zfile)
                 difficultyBeatmapSets[beatset.beatmapCharacteristicName] = beatset
 
-            songFilename = info["_songFilename"]
-            song = zfile.read(songFilename)
+            song = None
+            if "_songFilename" in info:
+                songFilename = find_file_from_zip_regardless_capital(zfile, info["_songFilename"])
+                if songFilename is not None:
+                    song = zfile.read(songFilename)
 
-            coverImageFilename = info["_coverImageFilename"]
-            cover = zfile.read(coverImageFilename)
+            cover = None
+            if "_coverImageFilename" in info:
+                coverImageFilename = find_file_from_zip_regardless_capital(zfile, info["_coverImageFilename"])
+                if coverImageFilename is not None:
+                    cover = zfile.read(coverImageFilename)
 
             return PyBeatmap(
                 version=info["_version"],
@@ -383,11 +389,6 @@ class PyBeatmap:
 
     def to_zip(self, path):
         with ZipFile(path, "w") as zfile:
-            # info.dat
-            difficultyBeatmapSets = []
-            for beatmap_set in self.difficultyBeatmapSets.values():
-                beatmap_set.difficultyBeatmaps
-
             info = {
                 "_version": self.version,
                 "_songName": self.songName,
