@@ -262,6 +262,11 @@ class BeatmapSet(_BytableDataType):
     difficultyBeatmaps: List[BeatmapInfo]
     customData: dict
 
+    def __getitem__(self, difficulty):
+        for beatmap_info in self.difficultyBeatmaps:
+            if beatmap_info.difficulty == difficulty:
+                return beatmap_info
+
     @staticmethod
     def from_zip(data: dict, zfile: ZipFile):
         difficultyBeatmaps = data.get("_difficultyBeatmaps", [])
