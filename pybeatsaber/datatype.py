@@ -121,6 +121,9 @@ class Obstacle(_BytableDataType):
     def time_seconds(self, bpm: float):
         return self.time / bpm * 60
 
+    def duration_seconds(self, bpm: float):
+        return self.duration / bpm * 60
+
     def is_valid(self):
         x = self.lineIndex in (0, 1, 2, 3)
         x &= self.width in (1, 2, 3, 4)
