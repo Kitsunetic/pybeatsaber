@@ -1,10 +1,15 @@
 # pybeatsaber
-BeatSaber Beatmap IO Library written in pure python
+BeatSaber beatmap IO library written in pure python.
+
+This library contains such functionalities:
+- save/load `*.zip` file (which contians info.dat and music file)
+- load music as `bytes` (you can also load it using `librosa` and `BytesIO`)
+- load cover image (`Pillow`)
 
 ## Installation
 
 ```sh
-pip install git+https://github.com/Kitsunetic/pybeatsaber
+pip install pybeatsaber
 ```
 
 
@@ -12,8 +17,8 @@ pip install git+https://github.com/Kitsunetic/pybeatsaber
 
 Load beatmap file (*.zip).
 
-The overall structure of data is quite hierarchical.
-I followed the structure introduced in documentation of [BSMG Wiki](https://bsmg.wiki/mapping/map-format.html).
+The data has hierarchical structure.
+I followed the structure introduced in documentation of [BSMG Wiki](https://bsmg.wiki/mapping/map-format.html) as much as possible.
 
 The specific notations are following:
 - `PyBeatmap`: The top class of the hierarchy. It can be opened from a `*.zip` file or you also can make this class from scratch.
